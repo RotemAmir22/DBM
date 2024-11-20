@@ -1,0 +1,129 @@
+-- a. Create a table MediaItems
+CREATE TABLE MediaItems (
+    MID BIGINT PRIMARY KEY,
+    TITLE VARCHAR(200),
+    PROD_YEAR BIGINT,
+    TITLE_LENGTH BIGINT
+   );
+
+
+-- b. Create a table Similarity
+CREATE TABLE Similarity (
+    MID1 BIGINT,
+    MID2 BIGINT,
+    SIMILARITY REAL,
+    PRIMARY KEY (MID1,MID2),
+    FOREIGN KEY (MID1) REFERENCES MediaItems(MID),
+    FOREIGN KEY (MID2) REFERENCES MediaItems(MID)
+   );
+
+
+-- c. Create a trigger AutoIncrement
+CREATE TRIGGER AutoIncrement
+ON MediaItems
+INSTEAD OF INSERT
+AS
+BEGIN
+    DECLARE @curr_mid BIGINT;
+    SELECT @curr_mid = ISNULL(MAX(MID), -1) FROM MediaItems;
+
+    INSERT INTO MediaItems (MID, TITLE, PROD_YEAR, TITLE_LENGTH)
+    SELECT
+        @curr_mid + 1,
+        TITLE,
+        PROD_YEAR,
+        LEN(TITLE)
+    FROM INSERTED;
+END;
+
+-- d. Create the MSSQL function MaximalDistance 
+CREATE FUNCTION MaximalDistance()
+RETURNS INT
+AS
+BEGIN
+    DECLARE @maximal_distance INT;
+
+    SELECT @maximal_distance = MAX(PROD_YEAR) - MIN(PROD_YEAR)
+    FROM MediaItems;
+
+    RETURN @maximal_distance
+END;
+
+
+
+-- e. Create an MSSQL function SimCalculation which calculates the similarity between 2 media items
+CREATE FUNCTION SimCalculation ( @MID1 INT, @MID2 INT, @maximal_distance FLOAT)
+RETURNS FLOAT
+AS
+BEGIN
+    DECLARE @similarity FLOAT;
+    DECLARE @prod1 BIGINT;
+    DECLARE @prod2 BIGINT;
+    DECLARE @distance FLOAT;
+
+    IF @maximal_distance = 0
+    BEGIN
+        SET @similarity = 0;
+        RETURN @similarity;
+    END;
+
+
+    SELECT @prod1 = PROD_YEAR
+    FROM MediaItems
+    WHERE MID = @MID1;
+
+    SELECT @prod2 = PROD_YEAR
+    FROM MediaItems
+    WHERE MID = @MID2;
+
+    SET @distance = ABS(@prod1 - @prod2);
+    SET @similarity = 1 - (@distance / @maximal_distance);
+    RETURN @similarity;
+END;
+
+-- f. Create a stored procedure AddSummaryItems
+CREATE PROCEDURE ADDSummaryItems
+AS
+BEGIN
+    DECLARE @PROD_YEAR BIGINT;
+    DECLARE @count BIGINT;
+    DECLARE @TITLE VARCHAR (200);
+
+    CREATE TABLE #Counts (
+        PROD_YEAR BIGINT,
+        count BIGINT
+    );
+
+    INSERT INTO #Counts (PROD_YEAR, count)
+    SELECT PROD_YEAR, COUNT(*)
+    FROM MediaItems
+    GROUP BY PROD_YEAR
+    HAVING COUNT(*) > 1;
+
+    DECLARE year_curs CURSOR FOR
+    SELECT PROD_YEAR, count
+    FROM #Counts;
+
+    OPEN year_curs;
+
+    FETCH NEXT FROM year_curs INTO @PROD_YEAR, @count;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @TITLE = CONCAT(@count, ' items in ', @PROD_YEAR);
+
+        IF NOT EXISTS (SELECT 1 FROM MediaItems WHERE TITLE = @TITLE AND PROD_YEAR = @PROD_YEAR)
+        BEGIN
+            INSERT INTO MediaItems (TITLE, PROD_YEAR, TITLE_LENGTH)
+            VALUES (@TITLE, @PROD_YEAR, LEN(@TITLE));
+        END;
+
+        FETCH NEXT FROM year_curs INTO @PROD_YEAR, @count;
+    END;
+
+    CLOSE year_curs;
+    DEALLOCATE year_curs;
+
+    DROP TABLE #Counts
+END;
+
