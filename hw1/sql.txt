@@ -89,6 +89,9 @@ BEGIN
     DECLARE @count BIGINT;
     DECLARE @TITLE VARCHAR (200);
 
+    DELETE FROM MediaItems
+    WHERE TITLE LIKE '% items in %';
+
     CREATE TABLE #Counts (
         PROD_YEAR BIGINT,
         count BIGINT
