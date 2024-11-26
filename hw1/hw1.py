@@ -1,11 +1,9 @@
 import csv
 import pyodbc
-from pymongo import database
-
 
 class DatabaseManager:
     def __init__(self, driver: str, server: str, username: str, password: str):
-        self.connection_string = f"DRIVER={driver};SERVER={server};UID={username};PWD={password};DATABASE={username}"
+        self.connection_string = f"DRIVER={driver};SERVER={server};UID={username};PWD={password};DATABASE={username};TrustServerCertificate=YES"
 
 
     def file_to_database(self, path: str) -> None:
@@ -28,7 +26,7 @@ class DatabaseManager:
                     if not title or not prod_year.isdigit():
                         continue
 
-                    title_length = len(title)  # Calculate the length of the title
+                    title_length = len(title)  # calculate the length of the title
 
                     # check that there aren't any duplicates
                     cursor.execute("SELECT COUNT(*) FROM dbo.MediaItems WHERE TITLE = ? AND PROD_YEAR = ?",
@@ -67,21 +65,22 @@ class DatabaseManager:
                     mid1 = all_MIDs[i]
                     mid2 = all_MIDs[j]
 
-                    # check that mids are different
+                    # check that MIDs are different
                     if mid1 == mid2:
                         continue
-                    # Call the SimCalculation function to get the similarity between the two MIDs
+
+                    # use SimCalculation function to get the similarity between the two MIDs
                     cursor.execute("SELECT dbo.SimCalculation(?, ?, ?)", mid1, mid2, maximal_distance)
                     similarity = cursor.fetchone()[0]
 
-                    # check that it's not a duplicate
+                    # check that it's not already in DB
                     cursor.execute("SELECT * FROM dbo.Similarity WHERE MID1 = ? AND MID2 = ?",
                                    (mid2, mid1))
                     if cursor.fetchone() is not None:
                         if cursor.fetchone()[0] > 0:
                             continue
 
-                    # Insert or update the Similarity table
+                    # insert to DB
                     cursor.execute("""
                                 IF EXISTS (SELECT 1 FROM dbo.Similarity WHERE MID1 = ? AND MID2 = ?)
                                 BEGIN
@@ -95,7 +94,7 @@ class DatabaseManager:
                                     VALUES (?, ?, ?)
                                 END
                             """, mid1, mid2, similarity, mid1, mid2, mid1, mid2, similarity)
-                    print(f"Similarity was successfully inserted MID1:{mid1}, MID2{mid2}")
+                    print(f"Similarity was successfully inserted MID1:{mid1}, MID2:{mid2}")
 
             # commit to database
             connection.commit()
@@ -129,7 +128,7 @@ class DatabaseManager:
 
             for row in results:
                 mid1, mid2, similarity, title = row
-                print(f"{title} {similarity:.2f}")
+                print(f"{title} {similarity}")
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -142,9 +141,9 @@ class DatabaseManager:
         try:
             connection = pyodbc.connect(self.connection_string)
             cursor = connection.cursor()
-            # Execute the stored procedure
+            # use addSummaryItems
             cursor.execute("EXEC AddSummaryItems")
-            connection.commit()  # Commit changes to the database
+            connection.commit()
             print("Summary items added successfully.")
 
         except Exception as e:
@@ -153,9 +152,3 @@ class DatabaseManager:
         finally:
             if connection:
                 connection.close()
-
-if __name__ == '__main__':
-    dm = DatabaseManager("ODBC Driver 18 for SQL Server", "132.72.64.124", "amirrot", "RPzc9yQh", "amirrot")
-    # dm.file_to_database("C:\\Users\\Rotem\\Documents\\GitHub\\DBM\\hw1\\films.csv")
-    # dm.calculate_similarity()
-    dm.add_summary_items()

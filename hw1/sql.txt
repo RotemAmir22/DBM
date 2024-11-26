@@ -36,6 +36,7 @@ BEGIN
     FROM INSERTED;
 END;
 
+
 -- d. Create the MSSQL function MaximalDistance 
 CREATE FUNCTION MaximalDistance()
 RETURNS INT
@@ -50,7 +51,6 @@ BEGIN
 END;
 
 
-
 -- e. Create an MSSQL function SimCalculation which calculates the similarity between 2 media items
 CREATE FUNCTION SimCalculation ( @MID1 INT, @MID2 INT, @maximal_distance FLOAT)
 RETURNS FLOAT
@@ -63,10 +63,9 @@ BEGIN
 
     IF @maximal_distance = 0
     BEGIN
-        SET @similarity = 0;
+        SET @similarity = 1;
         RETURN @similarity;
     END;
-
 
     SELECT @prod1 = PROD_YEAR
     FROM MediaItems
@@ -81,6 +80,7 @@ BEGIN
     RETURN @similarity;
 END;
 
+
 -- f. Create a stored procedure AddSummaryItems
 CREATE PROCEDURE ADDSummaryItems
 AS
@@ -88,9 +88,6 @@ BEGIN
     DECLARE @PROD_YEAR BIGINT;
     DECLARE @count BIGINT;
     DECLARE @TITLE VARCHAR (200);
-
-    DELETE FROM MediaItems
-    WHERE TITLE LIKE '% items in %';
 
     CREATE TABLE #Counts (
         PROD_YEAR BIGINT,
