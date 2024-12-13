@@ -74,8 +74,10 @@ class History(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(255), ForeignKey('Users.id'), nullable=False)
     user = relationship("User", back_populates="histories")
+    #     user = relationship("User", back_populates="histories", cascade='all, delete-orphan')
     media_item_id = Column(Integer, ForeignKey('MediaItems.id'), nullable=False)
     mediaitem = relationship('MediaItem')
+    #     mediaitem = relationship("MediaItem", back_populates="histories", cascade='all, delete', uselist=False)
     viewtime = Column(DateTime)
 
     def __init__(self, user_id, media_item_id, viewtime):
@@ -116,7 +118,7 @@ class UserRepository(Repository):
         return False
 
     def getNumberOfRegistredUsers(self,session, n: int) -> int:
-        start_date = datetime.now() - timedelta(days=n)
+        start_date = (datetime.now() - timedelta(days=n)).date()
         return session.query(User).filter(User.registration_date >= start_date).count()
     
 class ItemRepository(Repository):
