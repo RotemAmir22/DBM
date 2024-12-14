@@ -186,6 +186,7 @@ if __name__ == '__main__':
     connection_string = f"mssql+pyodbc://{username}:{password}@132.72.64.124/{username}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
     engine = create_engine(connection_string)
 
+    # delete tables from DB
     # with engine.connect() as connection:
     #     # Step 1: Drop all foreign key constraints
     #     connection.execute(text("""
@@ -210,6 +211,8 @@ if __name__ == '__main__':
     session = sessionmaker(bind=engine)()
 
     item_service = ItemService(session, ItemRepository())
+
+    # add media items to DB
     # csv_file_path = "../hw1/films.csv"
     #
     # # Open the CSV file and process it
@@ -226,7 +229,7 @@ if __name__ == '__main__':
     # print("Items created successfully from the CSV.")
     user_service = UserService(session, UserRepository())
 
-    # # add user
+    # # add users to DB
     usernames = ['user1', 'user2', 'user3', 'user4', 'user5']
     # passwords = ['12345', '67890', '11223', '44556', '78901']  # Numeric strings for passwords
     # first_names = ['John', 'Jane', 'Alice', 'Bob', 'Charlie']
@@ -255,7 +258,7 @@ if __name__ == '__main__':
     print(user_service.validateUser(username='user1', password='12345'))
     print(user_service.validateUser(username='user1', password='12445'))
 
-
+    # add history to users - CHANGE ID TO BE AS IN DB
     # user_service.add_history_to_user(username='user1', media_item_id=1)
     # user_service.add_history_to_user(username='user2', media_item_id=68)
     # user_service.add_history_to_user(username='user2', media_item_id=69)
