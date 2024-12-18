@@ -1,21 +1,15 @@
-import csv
-
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, LargeBinary, text
-# from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from sqlalchemy import func
 import bcrypt
 
 Base = declarative_base()
 
-
-
-
 class User(Base):
     __tablename__ = "Users"
-
     id = Column(String(255), primary_key=True)
     password = Column(LargeBinary)
     first_name = Column(String(255))
@@ -43,8 +37,8 @@ class User(Base):
 
 
     def add_history(self, media_item_id):
-        new_history = History(self.id, media_item_id, datetime.now(timezone.utc))
-        self.histories.insert(0, new_history)
+        new_history = History(self.id, media_item_id, datetime.now())
+        self.histories.append(new_history)
 
 
     def sum_title_length (self):
@@ -74,10 +68,8 @@ class History(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(255), ForeignKey('Users.id'), nullable=False)
     user = relationship("User", back_populates="histories")
-    #     user = relationship("User", back_populates="histories", cascade='all, delete-orphan')
     media_item_id = Column(Integer, ForeignKey('MediaItems.id'), nullable=False)
     mediaitem = relationship('MediaItem')
-    #     mediaitem = relationship("MediaItem", back_populates="histories", cascade='all, delete', uselist=False)
     viewtime = Column(DateTime)
 
     def __init__(self, user_id, media_item_id, viewtime):
@@ -162,6 +154,8 @@ class UserService:
     
     def sum_title_length_to_user(self, username):
         user = self.user_repo.get_by_id(self.session,  username)
+        if not user:
+            raise ValueError("User not found")
         return user.sum_title_length()
 
     def get_all_users(self):
@@ -260,7 +254,7 @@ if __name__ == '__main__':
 
     # add history to users - CHANGE ID TO BE AS IN DB
     # user_service.add_history_to_user(username='user1', media_item_id=1)
-    # user_service.add_history_to_user(username='user2', media_item_id=68)
+    # user_service.add_history_to_user(username='user2', media_item_id=80)
     # user_service.add_history_to_user(username='user2', media_item_id=69)
     # user_service.add_history_to_user(username='user3', media_item_id=98)
     # user_service.add_history_to_user(username='user3', media_item_id=70)
@@ -273,6 +267,8 @@ if __name__ == '__main__':
 
     print(user_service.getNumberOfRegistredUsers(1))
     print(user_service.getNumberOfRegistredUsers(2))
+    print(user_service.getNumberOfRegistredUsers(3))
+    print(user_service.getNumberOfRegistredUsers(10))
 
     print(user_service.get_all_users())
     print(item_service.item_repo.getTopNItems(session, 10))
