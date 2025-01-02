@@ -54,19 +54,20 @@ class DBManager:
 
     def load_csv(self) -> None:
         csv_file = 'NintendoGames.csv'
-        with open(csv_file, 'r', newline='', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            games_to_add = []
-            for row in reader:
-                # fill the required data
-                row['genres'] = ast.literal_eval(row['genres'])
-                row['is_rented'] = False
-                # make sure that there are no duplicates
-                if not self.game_collection.find_one({'title': row['title']}):
-                    games_to_add.append(row)
-            # insert the remaining records
-            if games_to_add:
-                self.game_collection.insert_many(games_to_add)
+        data = pd.read_csv(csv_file)
+
+        data['user_score'] = data['user_score'].astype(float)
+        data['genres'] = data['genres'].apply(ast.literal_eval)
+        data['is_rented'] = False
+        # make sure that there are no duplicates
+        games_to_add = []
+        for _, row in data.iterrows():
+            game_data = row.to_dict()
+            if not self.game_collection.find_one({'title': game_data['title']}):
+                games_to_add.append(game_data)
+        # insert the remaining records
+        if games_to_add:
+            self.game_collection.insert_many(games_to_add)
 
     def rent_game(self, user: dict, game_title: str) -> str:
         game = self.game_collection.find_one({'title': game_title})
@@ -156,6 +157,8 @@ class DBManager:
         similarities = similarities.argsort()[::-1]
         recommended_titles = [all_games_title[i] for i in similarities[:5]]
 
+        return recommended_titles
+
     def find_top_rated_games(self, min_score) -> list:
         return list(
             self.game_collection.find(
@@ -167,21 +170,24 @@ class DBManager:
     def decrement_scores(self, platform_name) -> None:
         self.game_collection.update_many(
             {'platform': platform_name},
-            {'$inc': {'score': -1}}
+            {'$inc': {'user_score': -1}}
         )
 
     def get_average_score_per_platform(self) -> dict:
-        agg = [
+        pipeline = [
             {"$group": {
                 "_id": "$platform",
                 "average_score": {"$avg": "$user_score"}
+            }},
+            {"$project": {
+                "_id": 1,
+                "average_score": {"$round": ["$average_score", 3]}
             }}
         ]
 
-        res = self.game_collection.aggregate(agg)
-        avg_scores = {result["_id"]: result["average_score"] for result in res}
+        results = self.game_collection.aggregate(pipeline)
+        return {result["_id"]: result["average_score"] for result in results}
 
-        return avg_scores
 
     def get_genres_distribution(self) -> dict:
         pipeline_genres = [
@@ -189,10 +195,92 @@ class DBManager:
             {'$group': {'_id': '$genres', 'count': {'$sum': 1}}}
         ]
         genres_data = list(self.game_collection.aggregate(pipeline_genres))
-
         return {item['_id']: item['count'] for item in genres_data}
 
 
 if __name__ == '__main__':
-    db = DBManager()
-    db.load_csv()
+    db_manager = DBManager()
+    db_manager.load_csv()
+    login_manager = LoginManager()
+
+    # # Step 1: Test user registration
+    # print("\n=== Testing User Registration ===")
+    # try:
+    #     print("Registering user1...")
+    #     login_manager.register_user("user1", "password1")
+    #     print("Registering user2...")
+    #     login_manager.register_user("user2", "password2")
+    #     print("Attempting to register an existing user...")
+    #     login_manager.register_user("user1", "password1")  # Should raise an error
+    # except ValueError as e:
+    #     print(f"Error: {e}")
+
+    # Step 2: Test user login
+    # print("\n=== Testing User Login ===")
+    # try:
+    #     print("Logging in as user1...")
+    #     login_manager.login_user("user1", "password1")
+    #     print("Attempting to login with wrong password...")
+    #     login_manager.login_user("user1", "wrongpassword")  # Should raise an error
+    # except ValueError as e:
+    #     print(f"Error: {e}")
+
+    # # Step 3: Test loading games from the database
+    # print("\n=== Testing Loaded Games ===")
+    # print(f"Total games in collection: {db_manager.game_collection.count_documents({})}")
+
+    # Step 4: Test renting a game
+    # print("\n=== Testing Game Renting ===")
+    # user1 = db_manager.user_collection.find_one({"username": "user1"})
+    # try:
+    #     # print("Renting a game...")
+    #     # result = db_manager.rent_game(user1, "Pikmin 4")
+    #     # print(result)
+    #     print("Renting the same game again (should fail)...")
+    #     result = db_manager.rent_game(user1, "Pikmin 4")  # Should fail
+    #     print(result)
+    # except ValueError as e:
+    #     print(f"Error: {e}")
+    #
+    # # Step 5: Test returning a game
+    # print("\n=== Testing Game Returning ===")
+    # try:
+    #     print("Returning a rented game...")
+    #     result = db_manager.return_game(user1, "Pikmin 4")
+    #     print(result)
+    #     print("Returning a game not rented by the user (should fail)...")
+    #     result = db_manager.return_game(user1, "Pikmin 4")
+    #     print(result)
+    # except ValueError as e:
+    #     print(f"Error: {e}")
+    #
+    # # Step 6: Test recommending games by genre
+    # print("\n=== Testing Game Recommendation by Genre ===")
+    # recommendations = db_manager.recommend_games_by_genre(user1)
+    # print("Recommended games by genre:", recommendations)
+    #
+    # # Step 7: Test recommending games by name
+    # print("\n=== Testing Game Recommendation by Name ===")
+    # recommendations = db_manager.recommend_games_by_name(user1)
+    # print("Recommended games by name:", recommendations)
+
+    # # Step 8: Test finding top-rated games
+    # print("\n=== Testing Top-Rated Games ===")
+    # top_rated = db_manager.find_top_rated_games(8.5)
+    # print("Top-rated games with score >= 8.5:", top_rated)
+
+    # Step 9: Test decrementing scores
+    # print("\n=== Testing Score Decrement ===")
+    # print("Decrementing scores for platform 'Switch'...")
+    # db_manager.decrement_scores("Switch")
+    # print("Scores decremented.")
+
+    # Step 10: Test average score per platform
+    print("\n=== Testing Average Score Per Platform ===")
+    avg_scores = db_manager.get_average_score_per_platform()
+    print("Average scores per platform:", avg_scores)
+
+    # # Step 11: Test genre distribution
+    # print("\n=== Testing Genre Distribution ===")
+    # genre_distribution = db_manager.get_genres_distribution()
+    # print("Genre distribution:", genre_distribution)
